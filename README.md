@@ -32,3 +32,7 @@ Example of `.env`:
 ```.env
 BOT_TOKEN="YOUR_TOKEN_FROM_BOT_FATHER"
 ```
+
+```bash
+npm install @fullcalendar/react @fullcalendar/daygrid @fullcalendar/interaction axios
+```
