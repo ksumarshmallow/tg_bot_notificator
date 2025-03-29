@@ -24,7 +24,6 @@ tg_bot_notificator/
 
 
 ## Example Usage
-
 Go to @BotFather bot and get your Bot Token. Then create and fill `.env` file:
 ```bash
 nano .env
