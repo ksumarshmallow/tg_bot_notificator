@@ -43,7 +43,7 @@ class CalendarDatabase:
     def delete_event(self, user_id, name, date):
         query = f"DELETE FROM {self.table_name} WHERE user_id = ? AND name = ? AND DATE(date) = ?"
         self._execute_query(query, (user_id, name, date))
-        return True #TODO: number of rows
+        return True #TODO: number of rowss
 
 
 class EventCalendar(CalendarDatabase):
