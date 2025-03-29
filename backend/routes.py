@@ -99,3 +99,6 @@ def delete_event():
 def calendar():
     user_id = request.args.get('user_id')
     return render_template('calendar.html', user_id=user_id)
+
+if __name__ == '__main__':
+    app.run(debug=True)
