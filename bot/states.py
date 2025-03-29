@@ -51,8 +51,14 @@ class BotState(ABC):
 
 
 # Состояние: ожидание ввода даты для создания события
-class AwaitingEventDateState(BotState):
-    async def handle(self, bot, update, context):
+class AwaitingDateState(BotState):
+    async def handle(self, bot, update, context, state: str="event"):
+        state_type = context.user_data.get("type")
+        if state_type not in ("event", "todo"):
+            logger.warning(f"User {user_id} state type is not set correctly.")
+            await update.message.reply_text("Ошибка на стороне сервера. Пни Ксюшу, пусть смотрит логи")
+            return
+        
         user_id = update.effective_user.id
         text = update.message.text
         date = parse_datetime(text)
@@ -62,30 +68,37 @@ class AwaitingEventDateState(BotState):
             return
         context.user_data["temp_date"] = date
         # Переходим к следующему состоянию – ввод названия события
-        context.user_data["state"] = "awaiting_event_name"
+        context.user_data["state"] = f"awaiting_{state_type}_name"
         await update.message.reply_text("✍️ Теперь напиши название события")
 
 
 # Состояние: ожидание ввода названия события
-class AwaitingEventNameState(BotState):
-    async def handle(self, bot, update, context):
+class AwaitingNameState(BotState):
+    async def handle(self, bot, update, context, state: str="state"):
         user_id = update.effective_user.id
         event_name = update.message.text
         temp_date = context.user_data.get("temp_date")
+        state_type = context.user_data.get("type")
+        
         if not temp_date:
             await update.message.reply_text("Дата потерялась 🥲, попробуй снова")
             return
+        
+        if state_type not in ("event", "todo"):
+            logger.warning(f"User {user_id} state type is not set correctly.")
+            await update.message.reply_text("Ошибка на стороне сервера. Пни Ксюшу, пусть смотрит логи")
+            return
 
         # Формируем запрос на добавление события
-        url = f"{bot.backend_url}/todos" if event_or_todo(temp_date) else f"{bot.backend_url}/events"
+        url = f"{bot.backend_url}/todos" if state_type=='todo' else f"{bot.backend_url}/events"
         payload = {"user_id": user_id, "name": event_name, "date": temp_date}
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload) as resp:
                 if resp.status in {200, 201}:
-                    logger.info(f"User {user_id} successfully added event: {event_name} on {temp_date}")
+                    logger.info(f"User {user_id} successfully added {state_type}: {event_name} on {temp_date}")
                     await update.message.reply_text(f"Событие '{event_name}' записано на {temp_date}!")
                 else:
-                    logger.error(f"User {user_id} failed to add event: {event_name} ({temp_date}). Status: {resp.status}")
+                    logger.error(f"User {user_id} failed to add {state_type}: {event_name} ({temp_date}). Status: {resp.status}")
                     await update.message.reply_text("Ошибка при добавлении события 🛠️")
 
         # Сбрасываем состояние
@@ -105,18 +118,47 @@ class AwaitingDeleteDateState(BotState):
             return
         context.user_data["temp_date"] = date
 
-        # Получаем события на данную дату через backend API
+        # получаем события на данную дату
         response = await bot.fetch_events_by_date(user_id, date)
         if response is None or not response:
             await update.message.reply_text("На этот день ничего нет 😌")
-            # Сбрасываем состояние
             context.user_data["state"] = None
             return
 
-        # Сохраняем список событий для выбора пользователем
-        events_mapping = {str(i + 1): event["name"] for i, event in enumerate(response)}
+        # сохраняем список событий для выбора пользователем
+        events_mapping = {str(i+1): event["name"] for i, event in enumerate(response)}
         context.user_data["delete_events"] = events_mapping
-        events_list = "\n".join(f"{i+1}. {name}" for i, name in events_mapping.items())
+
+        logger.info(events_mapping)
+        events_list = "\n".join(f"{int(i)}. {name}" for i, name in events_mapping.items())
         await update.message.reply_text(f"📅 События на {date}:\nВыбери номер события для удаления:\n{events_list}")
 
         context.user_data["state"] = "awaiting_delete_choice"
+
+
+# Состояние: ожидание выбора события для удаления
+class AwaitingDeleteChoiceState(BotState):
+    async def handle(self, bot, update, context):
+        user_id = update.effective_user.id
+        choice = update.message.text.strip()
+        delete_events = context.user_data.get("delete_events", {})
+        event_name = delete_events.get(choice)
+        if not event_name:
+            await update.message.reply_text("Неверный номер! Введи цифру из списка 🧐")
+            return
+
+        date = context.user_data.get("temp_date")
+        # Отправляем запрос на удаление
+        url = f"{bot.backend_url}/events/delete"
+        payload = {"user_id": user_id, "name": event_name, "date": date}
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload) as resp:
+                if resp.status in {200, 201}:
+                    await update.message.reply_text(f"Событие '{event_name}' удалено!")
+                else:
+                    await update.message.reply_text("Ошибка при удалении 🛠️")
+
+        # Сбрасываем состояние
+        context.user_data["state"] = None
+        context.user_data.pop("delete_events", None)
+        context.user_data.pop("temp_date", None)
