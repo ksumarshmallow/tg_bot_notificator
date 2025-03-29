@@ -1,14 +1,9 @@
 import re
 import logging
-import requests
 import aiohttp
-from dataclasses import dataclass
-from datetime import datetime, timedelta
 from dateparser.search import search_dates
 
 from abc import ABC, abstractmethod
-from telegram import Update, ReplyKeyboardMarkup
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, CallbackContext
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",

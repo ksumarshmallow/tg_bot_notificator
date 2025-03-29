@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 from backend.models import EventCalendar, TodoCalendar
 
 app = Flask(__name__)
@@ -93,3 +93,9 @@ def delete_event():
     else:
         app.logger.error(f"Event not found: {name} on {date}")
         return jsonify({"status": "error", "message": "Event not found!"}), 404
+    
+
+@app.route('/calendar')
+def calendar():
+    user_id = request.args.get('user_id')
+    return render_template('calendar.html', user_id=user_id)

@@ -1,0 +1,5 @@
+aiohttp==3.11.14
+dateparser==1.2.1
+Flask==3.1.0
+python-dotenv==1.1.0
+python-telegram-bot==22.0
