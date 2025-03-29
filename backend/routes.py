@@ -1,9 +1,17 @@
-from flask import Flask, request, jsonify, render_template
+import os
+from flask import Flask, request, jsonify, send_from_directory
 from backend.models import EventCalendar, TodoCalendar
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='frontend/public', static_url_path='')
 event_calendar = EventCalendar()
 todo_calendar = TodoCalendar()
+
+@app.route('/')
+def index():
+    index_path = os.path.join(os.getcwd(), 'frontend', 'public', 'index.html')
+    print(f"Ищем файл: {index_path}")
+    return send_from_directory(os.path.join(os.getcwd(), 'frontend/public'), 'index.html')
+
 
 @app.route('/events', methods=['POST'])
 def add_event():
@@ -93,12 +101,3 @@ def delete_event():
     else:
         app.logger.error(f"Event not found: {name} on {date}")
         return jsonify({"status": "error", "message": "Event not found!"}), 404
-    
-
-@app.route('/calendar')
-def calendar():
-    user_id = request.args.get('user_id')
-    return render_template('calendar.html', user_id=user_id)
-
-if __name__ == '__main__':
-    app.run(debug=True)
